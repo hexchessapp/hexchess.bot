@@ -1,0 +1,12 @@
+.github/
+__tests__/
+src/
+.eslintrc
+.gitignore
+.prettierignore
+.prettierrc
+jest.config.js
+tsconfig.cjs.json
+tsconfig.esm.json
+tsconfig.json
+tsconfig.types.json
