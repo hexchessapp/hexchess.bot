@@ -35,6 +35,9 @@ import {
   PieceSymbol,
 } from 'hexchess.js'
 
+/*
+ * Piece values for chess pieces to calulcate score for minimax
+ */
 const PIECE_VALUES: Record<PieceSymbol, number> = {
   b: 3,
   k: 0,
@@ -44,58 +47,67 @@ const PIECE_VALUES: Record<PieceSymbol, number> = {
   r: 5,
 }
 
-/*
- * TODO: comment
- * TODO: allow it to generate moves from either color
- */
-
 export class Bot {
   private chess: HexChess
+  private hits: number
 
   constructor(pgn: string | string[] = []) {
     this.chess = new HexChess()
     this.chess.loadPgn(pgn)
+    this.hits = 0
   }
 
+  /*
+   * Generates a move using minimax algorithm
+   */
   generate(depth = 0): {
     from: Hexagon
     to: Hexagon
   } | null {
-    console.log('BotMove hit')
+    console.log('BotMove Test')
+
+    /*
+     * Initializes variables for calculcations for best move
+     */
     let bestMove = null
-
-    const startTime = Date.now()
-    let elapsedTime = 0
-
     let bestValue = -Infinity
     let alpha = -Infinity
     const beta = Infinity
 
+    const startTime = Date.now()
+    let elapsedTime = 0
+
+    /*
+     * Finds all possible moves for the bot
+     */
     const allPiecesHexagons: Hexagon[] = HEXAGONS.filter(
-      (hex) => this.chess.board()[hex]?.color === BLACK
+      (hex) => this.chess.board()[hex]?.color === this.chess.turn()
     )
 
     const allPossibleMoves = allPiecesHexagons.flatMap((hex) =>
       this.chess.moves(hex).map((move) => ({ from: hex, to: move }))
     )
 
+    /*
+     * Sorts the moves by the heuristic
+     */
+
     allPossibleMoves.sort(
       (a, b) => this.heuristic(this.chess, b) - this.heuristic(this.chess, a)
     )
 
-    let hits = 0
+    /*
+     * Loops through all the possible moves and finds the best one
+     */
     for (const move of allPossibleMoves) {
-      this.chess.move(move)
-      const [moveValue, minimaxHits] = this.minimax(
-        this.chess,
-        depth,
-        alpha,
-        beta,
-        false
-      )
-      hits += minimaxHits
+      this.chess.move(move, true)
+      const moveValue = this.minimax(this.chess, depth, alpha, beta, false)
+      this.hits++
       this.chess.undo()
 
+      /*
+       * Updates the best move if the move is better than the previous best move
+       */
       if (moveValue > bestValue) {
         bestValue = moveValue
         bestMove = move
@@ -110,7 +122,7 @@ export class Bot {
 
     console.log(
       `Depth: ${depth + 1}, Elapsed Time: ${elapsedTime} 
-      ms, Minimax Hit: ${hits}`
+      ms, Minimax Hit: ${this.hits}, kNPS: ${this.hits / elapsedTime}`
     )
 
     return bestMove
@@ -118,6 +130,10 @@ export class Bot {
 
   // Later on will make killer heuristic
   private heuristic(chess: HexChess, move: MoveObject): number {
+    /*
+     * Checks if the move is a capture move and returns the value of the piece
+     * to push the bot towards better moves
+     */
     const targetPiece = chess.board()[move.to]
     if (targetPiece) {
       return PIECE_VALUES[targetPiece.type]
@@ -125,43 +141,62 @@ export class Bot {
     return 0
   }
 
+  /*
+   * Minimax algorithm with alpha beta pruning to find the best move
+   */
   private minimax(
     chess: HexChess,
     depth: number,
     alpha: number,
     beta: number,
     maximizing: boolean
-  ): [number, number] {
+  ): number {
     if (alpha >= beta) {
-      return [maximizing ? alpha : beta, 1]
+      return maximizing ? alpha : beta
     }
 
+    /*
+     * Once the depth is 0, the bot will evaluate the board and return the score
+     */
     if (depth === 0) {
-      return [this.evaluate(chess), 1]
+      return this.evaluate(chess)
     }
 
+    /*
+     * Finds all possible moves for the bot
+     */
     const allPossibleMoves = HEXAGONS.filter(
-      (hex) => chess.board()[hex]?.color === (maximizing ? BLACK : 'w')
+      (hex) => chess.board()[hex]?.color === this.chess.turn()
     ).flatMap((hex) =>
       chess.moves(hex).map((move) => ({ from: hex, to: move }))
     )
 
+    /*
+     * Alpha beta pruning values if its the maximizing or minimizing player
+     */
     let chessEval = maximizing ? -Infinity : Infinity
-    let hits = 0
+
+    /*
+     * Checks the moves at the current depth and tallys the values up
+     */
     for (const move of allPossibleMoves) {
-      chess.move(move)
-      const [evalu, minimaxHits] = this.minimax(
-        chess,
-        depth - 1,
-        alpha,
-        beta,
-        !maximizing
-      )
-      hits += minimaxHits
+      /*
+       * Simulates move to see out of the moves made to take the best value move
+       * and worst value move and assigns it to chessEval
+       */
+      chess.move(move, true)
+      const evalu = this.minimax(chess, depth - 1, alpha, beta, !maximizing)
+      this.hits++
+
       chess.undo()
+
       chessEval = maximizing
         ? Math.max(evalu, chessEval)
         : Math.min(evalu, chessEval)
+
+      /*
+       * Updates the alpha beta pruning values
+       */
       if (maximizing) {
         alpha = Math.max(alpha, evalu)
       } else {
@@ -171,9 +206,13 @@ export class Bot {
         break
       }
     }
-    return [chessEval, hits + allPossibleMoves.length]
+    return chessEval
   }
 
+  /*
+   * Evaluates the current board and returns the score
+   * of the pieces on the board
+   */
   private evaluate(chess: HexChess): number {
     let score = 0
     for (const hex of HEXAGONS) {
