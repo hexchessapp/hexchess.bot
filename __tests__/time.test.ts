@@ -4,7 +4,7 @@ test('works', () => {
   const bot = new Bot(['f6'])
 
   const start = performance.now()
-  const move = bot.generate(0)
+  const move = bot.generate(2)
   const end = performance.now()
 
   console.log(move)
