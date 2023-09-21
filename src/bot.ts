@@ -27,12 +27,16 @@
 
 import {
   BLACK,
+  BLACK_PROMOTION_HEXAGONS,
   Hexagon,
   HEXAGONS,
   HexChess,
   MoveObject,
+  PAWN,
   Piece,
   PieceSymbol,
+  WHITE,
+  WHITE_PROMOTION_HEXAGONS,
 } from 'hexchess.js'
 
 /*
@@ -100,6 +104,14 @@ export class Bot {
      * Loops through all the possible moves and finds the best one
      */
     for (const move of allPossibleMoves) {
+      const movingPiece = this.chess.board()[move.from];
+      if (movingPiece?.type == PAWN && 
+          ((movingPiece.color == WHITE && 
+          WHITE_PROMOTION_HEXAGONS.includes(move.to)) || 
+          (movingPiece.color == BLACK && 
+          BLACK_PROMOTION_HEXAGONS.includes(move.to)))) {
+              (move as any).promotion = 'q';
+      }
       this.chess.move(move, true)
       const moveValue = this.minimax(this.chess, depth, alpha, beta, false)
       this.hits++
