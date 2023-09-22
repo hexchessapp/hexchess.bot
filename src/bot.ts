@@ -113,10 +113,28 @@ export class Bot {
               (move as any).promotion = 'q';
       }
       this.chess.move(move, true)
-      const moveValue = this.minimax(this.chess, depth, alpha, beta, false)
+      let moveValue = this.minimax(this.chess, depth, alpha, beta, false)
       this.hits++
       this.chess.undo()
 
+      if (movingPiece?.type == 'k') {
+        const isUnderAttack = HEXAGONS.some((hex) => {
+            const piece = this.chess.board()[hex];
+            return piece?.color !== this.chess.turn() && this.chess.moves(hex).includes(move.from);
+        });
+        const isCapturing = !!this.chess.board()[move.to];
+        const isSafe = HEXAGONS.every((hex) => {
+            const piece = this.chess.board()[hex];
+            return !piece || piece.color === this.chess.turn() ||
+                   (!this.chess.moves(hex).includes(move.from) && 
+                    !this.chess.moves(hex).includes(move.to));
+        });
+        const isUnnecessaryMove = !isUnderAttack && !isCapturing && isSafe;
+
+        if (isUnnecessaryMove) {
+            moveValue -= 5;
+        }
+    }
       /*
        * Updates the best move if the move is better than the previous best move
        */
@@ -146,11 +164,18 @@ export class Bot {
      * Checks if the move is a capture move and returns the value of the piece
      * to push the bot towards better moves
      */
-    const targetPiece = chess.board()[move.to]
+    const targetPiece = chess.board()[move.to];
+    const movingPiece = chess.board()[move.from];
+    let moveScoreGuess = 0;
+    
     if (targetPiece) {
-      return PIECE_VALUES[targetPiece.type]
+      moveScoreGuess += 10 * PIECE_VALUES[targetPiece.type] - (movingPiece ? PIECE_VALUES[movingPiece.type] : 0);
     }
-    return 0
+
+    if (move.promotion) {
+      moveScoreGuess += PIECE_VALUES[move.promotion];
+    }
+    return moveScoreGuess;
   }
 
   /*

@@ -1,6 +1,6 @@
 {
   "name": "hexchess.bot",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "license": "BSD-2-Clause",
   "main": "dist/cjs/bot.js",
   "module": "dist/esm/bot.js",
